@@ -20,6 +20,13 @@ class KMeans:
             max_iter: int
                 the maximum number of iterations before quitting model fit
         """
+        if type(k)==int and k>0:
+            self.K=k
+        else:
+            raise TypeError('Ruh roh! k should be a positive integer')
+        self.tol = tol
+        self.centroids = None
+        self.max_iter = max_iter
 
     def fit(self, mat: np.ndarray):
         """
@@ -36,6 +43,22 @@ class KMeans:
             mat: np.ndarray
                 A 2D matrix where the rows are observations and columns are features
         """
+        if not isinstance(mat, np.ndarray) or mat.ndim !=2:
+            raise TypeError('Ruh roh! Input should be a 2D NumPy array')
+        if self.K > mat.shape[0]:
+            raise ValueError(f'Matrix of size {mat.shape} cannot be fit into {self.K} clusters')
+        
+        np.random.seed(42)
+        self.centroids=mat[np.random.choice(mat.shape[0], self.K, replace=False)]
+
+        for _ in range(self.max_iter):
+            distances = cdist(mat, self.centroids)
+            labels = np.argmin(distances, axis=1)
+            new_centroids = np.array([mat[labels==j].mean(axis=0) if np.any(labels==j) else self.centroids[j] for j in range(self.K)])
+            if np.linalg.norm(self.centroids - new_centroids) < self.tol:
+                break
+            self.centroids = new_centroids
+        
 
     def predict(self, mat: np.ndarray) -> np.ndarray:
         """
@@ -53,8 +76,15 @@ class KMeans:
             np.ndarray
                 a 1D array with the cluster label for each of the observations in `mat`
         """
+        if not isinstance(mat, np.ndarray) or mat.ndim !=2:
+            raise TypeError('Ruh roh! Input should be a 2D NumPy array')
+        if mat.shape[1] != self.centroids.shape[1]:
+            raise ValueError('Input data must have same number of features as fitted data')
+        
+        distances=cdist(mat, self.centroids)
+        return np.argmin(distances, axis=1)
 
-    def get_error(self) -> float:
+    def get_error(self, mat: np.ndarray) -> float:
         """
         Returns the final squared-mean error of the fit model. You can either do this by storing the
         original dataset or recording it following the end of model fitting.
@@ -63,6 +93,9 @@ class KMeans:
             float
                 the squared-mean error of the fit model
         """
+        distances = cdist(mat, self.centroids)
+        labels = np.argmin(distances, axis=1)
+        return np.mean([np.linalg.norm(mat[i]-self.centroids[labels[i]])**2 for i in range(len(mat))])
 
     def get_centroids(self) -> np.ndarray:
         """
@@ -72,3 +105,4 @@ class KMeans:
             np.ndarray
                 a `k x m` 2D matrix representing the cluster centroids of the fit model
         """
+        return self.centroids
